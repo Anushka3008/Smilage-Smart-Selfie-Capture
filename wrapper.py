@@ -21,10 +21,10 @@ class EmotionDetector:
         except Exception as e:
             print(f"[ERROR] Emotion detection failed: {e}")
         return None, 0
-    
+
 class AgeDetector:
-    def __init__(self, model_path='models/age/age_net.caffemodel',
-                 proto_path='models/age/age_deploy.prototxt'):
+    def __init__(self, model_path='models/age_net.caffemodel',
+                 proto_path='models/age_deploy.prototxt'):
         try:
             self.net = cv2.dnn.readNetFromCaffe(proto_path, model_path)
         except Exception as e:
@@ -51,4 +51,34 @@ class AgeDetector:
             return age, confidence
         except Exception as e:
             print(f"[ERROR] Age detection failed: {e}")
+        return None, 0
+
+class GenderDetector:
+    def __init__(self, model_path='models/gender_net.caffemodel',
+                 proto_path='models/gender_deploy.prototxt'):
+        try:
+            self.net = cv2.dnn.readNetFromCaffe(proto_path, model_path)
+        except Exception as e:
+            print(f"[ERROR] Failed to load gender model: {e}")
+            self.net = None
+
+        self.GENDER_LIST = ['Male', 'Female']
+
+    def detect_gender(self, frame, face_box):
+        if self.net is None or frame is None:
+            return None, 0
+        try:
+            x, y, w, h = face_box
+            face_img = frame[y:y+h, x:x+w].copy()
+            blob = cv2.dnn.blobFromImage(face_img, 1.0, (227, 227),
+                                         (78.4263377603, 87.7689143744, 114.895847746),
+                                         swapRB=False)
+            self.net.setInput(blob)
+            preds = self.net.forward()
+            i = preds[0].argmax()
+            gender = self.GENDER_LIST[i]
+            confidence = preds[0][i]
+            return gender, confidence
+        except Exception as e:
+            print(f"[ERROR] Gender detection failed: {e}")
         return None, 0

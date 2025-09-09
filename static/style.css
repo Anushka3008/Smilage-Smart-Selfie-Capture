@@ -18,6 +18,7 @@ body {
 canvas {
     border: 2px solid #ccc;
     border-radius: 5px;
+    background-color: #000; /* Black background to avoid blank screen */
 }
 
 .controls {
@@ -33,6 +34,7 @@ button {
     cursor: pointer;
     background-color: #c50076;
     color: white;
+    transition: 0.2s;
 }
 
 button:hover {
