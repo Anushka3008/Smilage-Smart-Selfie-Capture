@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smilage Selfie App</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>😊 Smilage Selfie Capture</h1>
+
+    <div class="video-container">
+      <canvas id="videoCanvas" width="640" height="480"></canvas>
+      <div id="overlayMessage">Selfie Captured!</div>
+    </div>
+    
+    <div class="controls">
+      <button id="startBtn">Start Camera</button>
+      <button id="stopBtn" class="stop">Stop Camera</button>
+      <button id="captureBtn">Manual Capture</button>
+      <label>
+        Smile Threshold:
+        <input type="range" id="smileThreshold" min="0" max="1" step="0.01" value="0.7">
+        <span id="thresholdVal">0.70</span>
+      </label>
+    </div>
+
+    <div id="predictionBox">
+      <h2>Live Predictions</h2>
+      <p><strong>Emotion:</strong> <span id="emotionVal">-</span></p>
+      <p><strong>Age:</strong> <span id="ageVal">-</span></p>
+      <p><strong>Gender:</strong> <span id="genderVal">-</span></p>
+      <p><strong>Smile Score:</strong> <span id="smileVal">-</span></p>
+      <p><strong>Image Quality:</strong> <span id="blurVal">-</span></p>
+    </div>
+  </div>
+
+<script>
+// Element References
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const captureBtn = document.getElementById('captureBtn');
+const thresholdSlider = document.getElementById('smileThreshold');
+const canvas = document.getElementById('videoCanvas');
+const ctx = canvas.getContext('2d');
+
+// DOM update helpers
+const updateText = (id, value) => document.getElementById(id).innerText = value;
+const showOverlay = (message) => {
+    const overlay = document.getElementById("overlayMessage");
+    overlay.innerText = message;
+    overlay.style.display = "block";
+    setTimeout(() => { overlay.style.display = "none"; }, 2000);
+};
+
+let ws; // WebSocket variable
+
+function startWebSocket() {
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+
+    ws = new WebSocket(`ws://${location.host}/ws/video`);
+
+    ws.onopen = () => {
+        console.log("WebSocket connected.");
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        captureBtn.disabled = false;
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        const img = new Image();
+        img.src = 'data:image/jpeg;base64,' + data.frame;
+        img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        if (data.predictions) {
+            const preds = data.predictions;
+            updateText("emotionVal", preds.emotion);
+            updateText("ageVal", preds.age);
+            updateText("genderVal", preds.gender);
+            updateText("smileVal", preds.smile_score.toFixed(2));
+            updateText("blurVal", preds.is_blurry ? "Blurry" : "Clear");
+        }
+        
+        if (data.capture) {
+            // MODIFIED: Removed the emoji from the message text
+            showOverlay("Selfie Captured");
+        }
+    };
+
+    ws.onclose = () => {
+        console.log("WebSocket disconnected.");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        captureBtn.disabled = true;
+    };
+
+    ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+    };
+}
+
+function stopWebSocket() {
+    if (ws) {
+        ws.close();
+    }
+}
+
+startBtn.onclick = startWebSocket;
+stopBtn.onclick = stopWebSocket;
+stopBtn.disabled = true;
+captureBtn.disabled = true;
+
+captureBtn.onclick = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "manual_capture" }));
+    }
+};
+
+thresholdSlider.oninput = (e) => {
+    const newThreshold = parseFloat(e.target.value);
+    updateText('thresholdVal', newThreshold.toFixed(2));
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "update_threshold", value: newThreshold }));
+    }
+};
+
+</script>
+</body>
+</html>

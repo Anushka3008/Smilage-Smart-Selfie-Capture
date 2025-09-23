@@ -3,3 +3,4 @@ venv/
 .vscode/
 captures/
 models/
+frontend/node_modules
